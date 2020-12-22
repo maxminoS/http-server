@@ -1,41 +1,42 @@
 import socket
 import threading
 
-HOST = '127.0.0.1'
-PORT = 65432
+class Server:
+    def __init__(self):
+        self.host = '127.0.0.1'
+        self.port = 65432
+        self.word_dict = {'emission': 'Get out', 'Notemission': 'Stay'}
 
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind((self.host, self.port))
 
-word_dict = {'emission': 'Get out', 'Notemission': 'Stay'}
-
-def handle_client(conn, addr):
-    with conn:
-        print('Connected to', addr)
+    def connect(self):
+        self.socket.listen()
         while True:
-            data = conn.recv(1024).decode('utf-8')
+            conn, addr = self.socket.accept()
+            threading.Thread(target=self.handle_client, args=(conn, addr)).start()
+
+    def handle_client(self, conn, addr):
+        while True:
+            data = conn.recv(1024).decode('UTF-8').strip()
             try:
-                method, word = data.split()
+                method, word = data.split(' ', 1)
             except:
                 if data == "STOP":
-                    conn.sendall(bytes("STOP Server stopped", "utf-8"))
+                    conn.sendall("STOP Server stopped\n".encode())
                     break
-                conn.sendall(bytes("ERROR Something happened", "utf-8"))
+                conn.sendall("ERROR Something happened\n".encode())
                 break
 
             if method == "GET":
-                if word not in word_dict:
-                    conn.sendall(bytes("ERROR Word not found, try again.", "utf-8"))
+                if word not in self.word_dict:
+                    conn.sendall("ERROR Word not found, try again\n".encode())
                     continue
-                conn.sendall(bytes(f"ANSWER {word_dict[word]}", "utf-8"))
+                conn.sendall(f"ANSWER {self.word_dict[word]}\n".encode())
             else:
-                conn.sendall(bytes("ERROR Method not recognized.", "utf-8"))
+                conn.sendall("ERROR Method not recognized\n".encode())
                 break
 
-
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.bind((HOST, PORT))
-    s.listen()
-    print('Server listening...')
-    while True:
-        conn, addr = s.accept()
-        thread = threading.Thread(target=handle_client, args=(conn, addr))
-        thread.start()
+if __name__ == '__main__':
+    Server().connect()
